@@ -11,6 +11,7 @@ if (os == 'windows') {
     source('~/GitHub_repos/R-setup/setup.r')
     path <- c('~/GitHub_repos/Diabetes/')
 }
+## install.packages('xts')  # this is only needed one time
 ## set working folder
 setwd(path)
 ## load local modules
@@ -38,10 +39,26 @@ df.fake <- fake()
 
 ##--------------------------------------------------------------
 ## By hand, create and read following with columns for: BG1, Carbs, Insulin, and BG2
-data.df <- read.csv('F:/Documents/01_Dave/Sync/diabetes/data/raw/analyzed.csv')
-## data.df <- read.csv('f:/Documents/01_Dave/Programs/GitHub_home/Diabetes/analyzed.png.csv')
-data.df$date <- as.POSIXct(data.df$date, format="%Y-%m-%d %H:%M:%S")   # convert date to actual date format
-names(data.df) <- c('Date', 'Hour', 'Carbs', 'Insulin', 'BG1', 'BG2')
+who <- 'sam'
+if (who == 'brad') {
+    data.df <- read.csv('F:/Documents/01_Dave/Sync/diabetes/data/raw/analyzed.csv')
+    ## data.df <- read.csv('f:/Documents/01_Dave/Programs/GitHub_home/Diabetes/analyzed.png.csv')
+    data.df$date <- as.POSIXct(data.df$date, format="%Y-%m-%d %H:%M:%S")   # convert date to actual date format
+    names(data.df) <- c('Date', 'Hour', 'Carbs', 'Insulin', 'BG1', 'BG2')
+} else {
+    data.df <- readall('sam.xlsx', header.row=14198, data.start.row=14199)
+    data.df$Date <- as.POSIXct(data.df$EventDateTime, format="%Y-%m-%dT%H:%M:%S") 
+    data.df$Hour <- NA
+    data.df$Carbs <- data.df$CarbSize
+    data.df$Insulin <- data.df$InsulinDelivered
+    data.df$BG1 <- data.df$BG
+    data.df$Date.BG2 <- data.df$Date # this date will not be correct it is later advanced
+    data.df$BG2 <- NA            # use BG at time of next bolus
+    data.df$ActiveIns <- NA      # assume linear decrease over 
+    data.df <- subset(data.df, select=c('Date', 'Hour', 'Carbs', 'Insulin', 'BG1', 'Date.BG2', 'BG2'))
+    ## need logic for active insulin
+    ## alternately, need logic to combine carbs and insulin if given within an hour then set BG2 ~2 hrs later
+}
 cat('data as read in:\n')
 print(data.df)
 
@@ -56,6 +73,20 @@ print(data.df)
 ## or to a maatrix with numeric index with zoo::coredata(data.xts)
 data.xts <- xts::as.xts(zoo::read.zoo(data.df,   index.column = 1, format = "%Y-%m-%d %H:%M:%S", tz=Sys.timezone()))
 ## print(data.xts)
+
+if (who == 'sam') {
+    ## determine onboard insulin and BG2
+
+    ## first create another xts object with data shifted 1 row earlier
+    advanced <- xts::lag.xts(data.xts, k=-1)     # this changes columns to character for some reason dlh
+    data.xts$BG2 <- advanced$BG1
+    data.xts$Date.BG2 <- advanced$Date.BG2
+    head(data.xts)
+    tail(data.xts)
+
+    ## determine time BG1 and BG2
+    data.xts$hours.passed <- data.xts$Date.BG2 - data.xts$Date
+}
 
 ##--------------------------------------------------------------
 ## determine form of model to use
