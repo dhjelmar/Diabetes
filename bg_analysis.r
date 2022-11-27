@@ -52,9 +52,15 @@ if (who == 'brad') {
     data.df$Carbs <- data.df$CarbSize
     data.df$Insulin <- data.df$InsulinDelivered
     data.df$BG1 <- data.df$BG
-    data.df$Date.BG2 <- data.df$Date # this date will not be correct it is later advanced
-    data.df$BG2 <- NA            # use BG at time of next bolus
     data.df$ActiveIns <- NA      # assume linear decrease over 
+    ## pull next BG and associated date to define BG2
+    Date.BG2 <- data.df$Date[2:nrow(data.df)] 
+    BG2      <- data.df$BG1[2:nrow(data.df)]
+    ## drop last row of data.df and combing with BG2 info
+    data.df <- data.df[-nrow(data.df),]
+    data.df$Date.BG2 <- Date.BG2
+    data.df$BG2 <- BG2
+    ## only keep variables I want    
     data.df <- subset(data.df, select=c('Date', 'Hour', 'Carbs', 'Insulin', 'BG1', 'Date.BG2', 'BG2'))
     ## need logic for active insulin
     ## alternately, need logic to combine carbs and insulin if given within an hour then set BG2 ~2 hrs later
